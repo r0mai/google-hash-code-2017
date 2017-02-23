@@ -213,13 +213,17 @@ int64_t getScore(const Data& data, const Result& result) {
         for (int cache_index = 0;
             cache_index < result.videos_in_cache.size(); ++cache_index)
         {
+            auto lit = data.end_points[request.end_point].latencies.find(cache_index);
+            if (lit == data.end_points[request.end_point].latencies.end()) {
+                continue;
+            }
+            auto latency = lit->second;
+            if (latency > best_latency) {
+                continue;
+            }
             const auto& videos = result.videos_in_cache[cache_index];
             auto it = std::find(videos.begin(), videos.end(), request.video_index);
             if (it == videos.end()) {
-                continue;
-            }
-            auto latency = data.end_points[request.end_point].latencies.at(cache_index);
-            if (latency > best_latency) {
                 continue;
             }
             best_latency = latency;
@@ -238,5 +242,5 @@ int main() {
     Data data = parse();
     Result result = getResult(data);
     output(result);
-    std::cerr << "Expected score = " << getScore(data, result) << std::endl;
+    // std::cerr << "Expected score = " << getScore(data, result) << std::endl;
 }
