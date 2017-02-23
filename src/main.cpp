@@ -1,6 +1,10 @@
 #include <iostream>
+#include <algorithm>
 #include <vector>
 #include <unordered_map>
+#include <map>
+
+#include <boost/container/flat_map.hpp>
 
 struct EndPoint {
     int data_center_latency;
@@ -28,10 +32,24 @@ struct Result {
 struct Edge {
     int video_index;
     int cache_index;
-    int count;
-    int size;
-    int saving; // latency saving
+    bool operator<(const Edge& rhs) const {
+        return std::tie(video_index, cache_index) <
+               std::tie(rhs.video_index, rhs.cache_index);
+    }
+    bool operator==(const Edge& rhs) const {
+        return std::tie(video_index, cache_index) ==
+               std::tie(rhs.video_index, rhs.cache_index);
+    }
 };
+
+namespace std {
+template<>
+struct hash<Edge> {
+    std::size_t operator()(const Edge& edge) const {
+        return edge.video_index*1000000 + edge.cache_index;
+    }
+};
+}
 
 
 Data parse() {
@@ -84,37 +102,73 @@ void output(const Result& result) {
     std::cout << std::flush;
 }
 
-std::vector<Edge> generateEdges(const Data& data) {
-    std::vector<Edge> result;
+struct WeightPair {
+    int weight = 0;
+};
+
+template<typename K, typename V>
+using Map = std::unordered_map<K, V>;
+
+Map<Edge, WeightPair> generateEdges(const Data& data) {
+    Map<Edge, WeightPair> result;
 
     size_t count = 0;
     for (const auto& req : data.requests) {
         const auto& end_point = data.end_points[req.end_point];
         count += end_point.latencies.size();
     }
-    result.reserve(count);
-    // std::cout << count << std::endl;
+    std::cout << count << std::endl;
 
+    std::size_t iterations = 0;
+    std::cerr << "iterations to go: " << count << std::endl;
+    std::cerr << "requests: " << data.requests.size() << std::endl;
     for (const auto& req : data.requests) {
+        ++iterations;
         const auto& end_point = data.end_points[req.end_point];
 
+        if (iterations % 1000 == 0) {
+            std::cerr << iterations << std::endl;
+        }
         Edge base;
         base.video_index = req.video_index;
-        base.count = req.count;
-        base.size = data.video_sizes[req.video_index];
-        base.saving = end_point.data_center_latency;
 
         for (const auto& lt : end_point.latencies) {
             Edge edge = base;
             edge.cache_index = lt.first;
-            edge.saving -= lt.second;
-            result.push_back(edge);
+            WeightPair& weightPair = result[edge];
+            weightPair.weight += req.count * (end_point.data_center_latency - lt.second);
         }
     }
     return result;
 }
 
+std::vector<std::pair<Edge, WeightPair>> sortEdges(
+        const Map<Edge, WeightPair>& edges,
+        const Data& data) {
+    std::vector<std::pair<Edge, WeightPair>> result;
+    result.reserve(edges.size());
+    for (const auto& edge : edges) {
+        result.push_back(std::pair<Edge, WeightPair>{edge.first, edge.second});
+    }
+
+    auto getWeight = [&data](const auto& e) {
+        const auto& size = data.video_sizes[e.first.video_index];
+        return static_cast<int>(
+                std::round(e.second.weight / static_cast<double>(size)));
+    };
+
+    auto comparator = [&getWeight](const auto& l, const auto& r) {
+        return getWeight(l) > getWeight(r);
+    };
+    std::sort(result.begin(), result.end(), comparator);
+    return result;
+}
+
 Result getResult(const Data& data) {
+    const auto& edges = generateEdges(data);
+    std::cerr << "After generate" << std::endl;
+    const auto& sortedEdges = sortEdges(edges, data);
+
     return {};
 }
 
