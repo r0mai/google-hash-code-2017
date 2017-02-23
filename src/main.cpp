@@ -102,15 +102,16 @@ void output(const Result& result) {
     std::cout << std::flush;
 }
 
-struct WeightPair {
-    int weight = 0;
+struct Weight {
+    int value = 0;
+    std::vector<int> requests;
 };
 
 template<typename K, typename V>
 using Map = std::unordered_map<K, V>;
 
-Map<Edge, WeightPair> generateEdges(const Data& data) {
-    Map<Edge, WeightPair> result;
+Map<Edge, Weight> generateEdges(const Data& data) {
+    Map<Edge, Weight> result;
 
     size_t count = 0;
     for (const auto& req : data.requests) {
@@ -122,39 +123,43 @@ Map<Edge, WeightPair> generateEdges(const Data& data) {
     std::size_t iterations = 0;
     std::cerr << "iterations to go: " << count << std::endl;
     std::cerr << "requests: " << data.requests.size() << std::endl;
+
     for (const auto& req : data.requests) {
+        auto index = &req - &data.requests[0];
         ++iterations;
         const auto& end_point = data.end_points[req.end_point];
 
         if (iterations % 1000 == 0) {
             std::cerr << iterations << std::endl;
         }
-        Edge base;
-        base.video_index = req.video_index;
 
         for (const auto& lt : end_point.latencies) {
-            Edge edge = base;
+            Edge edge;
+            edge.video_index = req.video_index;
             edge.cache_index = lt.first;
-            WeightPair& weightPair = result[edge];
-            weightPair.weight += req.count * (end_point.data_center_latency - lt.second);
+
+            auto delta = (end_point.data_center_latency - lt.second);
+            Weight& weight = result[edge];
+            weight.value += req.count * delta;
+            weight.requests.push_back(index);
         }
     }
     return result;
 }
 
-std::vector<std::pair<Edge, WeightPair>> sortEdges(
-        const Map<Edge, WeightPair>& edges,
+std::vector<std::pair<Edge, Weight>> sortEdges(
+        const Map<Edge, Weight>& edges,
         const Data& data) {
-    std::vector<std::pair<Edge, WeightPair>> result;
+    std::vector<std::pair<Edge, Weight>> result;
     result.reserve(edges.size());
     for (const auto& edge : edges) {
-        result.push_back(std::pair<Edge, WeightPair>{edge.first, edge.second});
+        result.push_back(std::pair<Edge, Weight>{edge.first, edge.second});
     }
 
     auto getWeight = [&data](const auto& e) {
         const auto& size = data.video_sizes[e.first.video_index];
         return static_cast<int>(
-                std::round(e.second.weight / static_cast<double>(size)));
+                std::round(e.second.value / static_cast<double>(size)));
     };
 
     auto comparator = [&getWeight](const auto& l, const auto& r) {
