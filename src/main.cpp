@@ -206,6 +206,30 @@ Result getResult(const Data& data) {
     ;
 }
 
+int64_t getScore(const Data& data, const Result& result) {
+    int64_t score = 0;
+    for (const auto& request : data.requests) {
+        int best_latency = data.end_points[request.end_point].data_center_latency;
+        for (int cache_index = 0;
+            cache_index < result.videos_in_cache.size(); ++cache_index)
+        {
+            const auto& videos = result.videos_in_cache[cache_index];
+            auto it = std::find(videos.begin(), videos.end(), request.video_index);
+            if (it == videos.end()) {
+                continue;
+            }
+            auto latency = data.end_points[request.end_point].latencies.at(cache_index);
+            if (latency > best_latency) {
+                continue;
+            }
+            best_latency = latency;
+        }
+
+        score += data.end_points[request.end_point].data_center_latency - best_latency;
+    }
+    return score;
+}
+
 int main() {
     Data data = parse();
     output(getResult(data));
