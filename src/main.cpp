@@ -119,8 +119,6 @@ Map<Edge, Weight> generateEdges(const Data& data) {
         const auto& end_point = data.end_points[req.end_point];
         count += end_point.latencies.size();
     }
-    std::cout << count << std::endl;
-
     std::size_t iterations = 0;
     std::cerr << "iterations to go: " << count << std::endl;
     std::cerr << "requests: " << data.requests.size() << std::endl;
