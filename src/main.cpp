@@ -75,6 +75,11 @@ void output(const Result& result) {
     std::cout << std::flush;
 }
 
+Result getResult(const Data& data) {
+    return {};
+}
+
 int main() {
     Data data = parse();
+    output(getResult(data));
 }
