@@ -9,7 +9,7 @@
 
 struct EndPoint {
     int data_center_latency;
-    std::unordered_map<int, int> latencies; // end_point index -> latency in ms
+    std::unordered_map<int, int> latencies; // cache_index -> latency in ms
 };
 
 struct Request {
@@ -169,13 +169,13 @@ std::vector<std::pair<Edge, Weight>> sortEdges(
 }
 
 
-void insert_video_if_can_and_isnt_in_already(const Data& data, Result& result,
+bool insert_video_if_can_and_isnt_in_already(const Data& data, Result& result,
         int video,
         int cache) {
     auto& cache_vec = result.videos_in_cache[cache];
     auto it = std::find(cache_vec.begin(), cache_vec.end(), video);
     if (it != cache_vec.end()) {
-        return;
+        return false;
     }
     int used = std::accumulate(cache_vec.begin(), cache_vec.end(), 0,
             [&data](int total, int video) {
@@ -185,7 +185,58 @@ void insert_video_if_can_and_isnt_in_already(const Data& data, Result& result,
     // TODO: Can we always fully pack a cache?
     if (data.video_sizes[video] <= remaining) {
         cache_vec.push_back(video);
+        return true;
     }
+    return false;
+}
+
+using LatencyVec = std::vector<int>;
+
+LatencyVec getLatencies(const Data& data) {
+    std::vector<int> base_latency(data.requests.size());
+    for (size_t i = 0, ie = base_latency.size(); i < ie; ++i) {
+        const auto& req = data.requests[i];
+        base_latency[i] = data.end_points[req.end_point].data_center_latency;
+    }
+    return base_latency;
+}
+
+void dumpLatencies(const LatencyVec& vec) {
+    std::cerr << "> ";
+    for (auto i : vec) {
+        std::cerr << i << " ";
+    }
+    std::cerr << std::endl;
+
+}
+
+bool checkLatencies(const Data& data, const std::vector<int>& request_indexes,
+    const Edge& edge, LatencyVec& best_latency, bool update = false)
+{
+    int better = 0;
+    int count = 0;
+    for (auto index : request_indexes) {
+        auto end_point = data.requests[index].end_point;
+        const auto& latencies = data.end_points[end_point].latencies;
+        auto it = latencies.find(edge.cache_index);
+        if (it != latencies.end()) {
+            auto latency = it->second;
+            if (update && latency < best_latency[index]) {
+                best_latency[index] = latency;
+            }
+            if (!update) {
+                auto delta = best_latency[index] - latency;
+                if (delta < 0) { continue; }
+                better += delta * data.requests[index].count;
+                count += data.requests[index].count;
+            }
+        }
+    }
+    if (count > 0) {
+        better /= count;
+    }
+    std::cerr << better << std::endl;
+    return better > 150;
 }
 
 Result getResult(const Data& data) {
@@ -193,16 +244,26 @@ Result getResult(const Data& data) {
     std::cerr << "After generate" << std::endl;
     const auto& sortedEdges = sortEdges(edges, data);
 
+    LatencyVec latencies = getLatencies(data);
+
     Result result;
     result.videos_in_cache.resize(data.cache_server_count);
+
     for (const auto& edge : sortedEdges) {
         const auto& video = edge.first.video_index;
         const auto& cache = edge.first.cache_index;
-        insert_video_if_can_and_isnt_in_already(data, result, video, cache);
+        // dumpLatencies(latencies);
+        // std::cerr << "  " << video << " " << cache << "\n";
+        if (checkLatencies(data, edge.second.requests, edge.first, latencies)) {
+            if (insert_video_if_can_and_isnt_in_already(data, result, video, cache)) {
+                // std::cerr << "  :)\n";
+                checkLatencies(data, edge.second.requests, edge.first, latencies, true);
+            }
+        }
     }
+    std::cerr << "--\n";
 
     return result;
-    ;
 }
 
 int64_t getScore(const Data& data, const Result& result) {
@@ -238,5 +299,5 @@ int main() {
     Data data = parse();
     Result result = getResult(data);
     output(result);
-    std::cerr << "Expected score = " << getScore(data, result) << std::endl;
+    // std::cerr << "Expected score = " << getScore(data, result) << std::endl;
 }
