@@ -21,6 +21,10 @@ struct Data {
     int cache_size; // in MB
 };
 
+struct Result {
+    std::vector<std::vector<int>> videos_in_cache;
+};
+
 Data parse() {
     Data data;
 
@@ -57,6 +61,18 @@ Data parse() {
     }
 
     return data;
+}
+
+void output(const Result& result) {
+    std::cout << result.videos_in_cache.size() << '\n';
+    for (int i = 0; i < int(result.videos_in_cache.size()); ++i) {
+        std::cout << i << ' ';
+        for (int j = 0; j < int(result.videos_in_cache[i].size()); ++j) {
+            std::cout << result.videos_in_cache[i][j] << ' ';
+        }
+        std::cout << '\n';
+    }
+    std::cout << std::flush;
 }
 
 int main() {
