@@ -237,6 +237,6 @@ int64_t getScore(const Data& data, const Result& result) {
 int main() {
     Data data = parse();
     Result result = getResult(data);
-    output(getResult(data));
+    output(result);
     std::cerr << "Expected score = " << getScore(data, result) << std::endl;
 }
