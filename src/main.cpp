@@ -209,6 +209,7 @@ Result getResult(const Data& data) {
 
 int64_t getScore(const Data& data, const Result& result) {
     int64_t score = 0;
+    int all_request_count = 0;
     for (const auto& request : data.requests) {
         int best_latency = data.end_points[request.end_point].data_center_latency;
         for (int cache_index = 0;
@@ -226,12 +227,18 @@ int64_t getScore(const Data& data, const Result& result) {
             best_latency = latency;
         }
 
-        score += data.end_points[request.end_point].data_center_latency - best_latency;
+        score += (data.end_points[request.end_point].data_center_latency - best_latency)
+            * request.count * 1000;
+
+        all_request_count += request.count;
     }
-    return score;
+
+    return score / all_request_count;
 }
 
 int main() {
     Data data = parse();
+    Result result = getResult(data);
     output(getResult(data));
+    std::cerr << "Expected score = " << getScore(data, result) << std::endl;
 }
