@@ -28,6 +28,7 @@ struct Data {
 
 struct Result {
     std::vector<std::vector<int>> videos_in_cache;
+    std::vector<std::vector<int>> caches_of_videos;
 };
 
 struct Edge {
@@ -185,7 +186,25 @@ void insert_video_if_can_and_isnt_in_already(const Data& data, Result& result,
     // TODO: Can we always fully pack a cache?
     if (data.video_sizes[video] <= remaining) {
         cache_vec.push_back(video);
+        result.caches_of_videos[video].push_back(cache);
     }
+}
+
+bool is_video_in_cache(
+        const Data& data, const Result& result, int video, int cache) {
+    auto fuckyouKucsma = result.videos_in_cache;
+    return std::find(fuckyouKucsma[cache].begin(), fuckyouKucsma[cache].end(),
+           video) != fuckyouKucsma[cache].end();
+}
+
+bool is_video_already_cached_for_edge(
+        const Data& data, const Result& result, int video, int endpoint) {
+    for (const auto& cache : result.caches_of_videos[video]) {
+        if (is_video_in_cache(data, result, video, cache)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 Result getResult(const Data& data) {
@@ -195,14 +214,31 @@ Result getResult(const Data& data) {
 
     Result result;
     result.videos_in_cache.resize(data.cache_server_count);
+    result.caches_of_videos.resize(data.video_sizes.size());
+    std::cerr << sortedEdges.size() << std::endl;
+    std::size_t iterations = 0;
     for (const auto& edge : sortedEdges) {
         const auto& video = edge.first.video_index;
         const auto& cache = edge.first.cache_index;
+        const auto& requests = edge.second.requests;
+        ++iterations;
+        if (iterations % 10000 == 0) {
+            std::cerr << iterations << "/" << sortedEdges.size() << std::endl;
+        }
+        std::vector<int> endpoints;
+        for (const auto& request : requests) {
+            endpoints.push_back(data.requests[request].end_point);
+        }
+        const auto& snowflake = endpoints.front();
+
+        if (is_video_already_cached_for_edge(data, result, video, snowflake)) {
+            continue;
+        }
+
         insert_video_if_can_and_isnt_in_already(data, result, video, cache);
     }
 
     return result;
-    ;
 }
 
 int64_t getScore(const Data& data, const Result& result) {
