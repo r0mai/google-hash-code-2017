@@ -3,6 +3,7 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <numeric>
 
 #include <boost/container/flat_map.hpp>
 
