@@ -25,6 +25,15 @@ struct Result {
     std::vector<std::vector<int>> videos_in_cache;
 };
 
+struct Edge {
+    int video_index;
+    int cache_index;
+    int count;
+    int size;
+    int saving; // latency saving
+};
+
+
 Data parse() {
     Data data;
 
@@ -73,6 +82,36 @@ void output(const Result& result) {
         std::cout << '\n';
     }
     std::cout << std::flush;
+}
+
+std::vector<Edge> generateEdges(const Data& data) {
+    std::vector<Edge> result;
+
+    size_t count = 0;
+    for (const auto& req : data.requests) {
+        const auto& end_point = data.end_points[req.end_point];
+        count += end_point.latencies.size();
+    }
+    result.reserve(count);
+    // std::cout << count << std::endl;
+
+    for (const auto& req : data.requests) {
+        const auto& end_point = data.end_points[req.end_point];
+
+        Edge base;
+        base.video_index = req.video_index;
+        base.count = req.count;
+        base.size = data.video_sizes[req.video_index];
+        base.saving = end_point.data_center_latency;
+
+        for (const auto& lt : end_point.latencies) {
+            Edge edge = base;
+            edge.cache_index = lt.first;
+            edge.saving -= lt.second;
+            result.push_back(edge);
+        }
+    }
+    return result;
 }
 
 Result getResult(const Data& data) {
