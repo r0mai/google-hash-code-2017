@@ -169,12 +169,41 @@ std::vector<std::pair<Edge, Weight>> sortEdges(
     return result;
 }
 
+
+void insert_video_if_can_and_isnt_in_already(const Data& data, Result& result,
+        int video,
+        int cache) {
+    auto& cache_vec = result.videos_in_cache[cache];
+    auto it = std::find(cache_vec.begin(), cache_vec.end(), video);
+    if (it != cache_vec.end()) {
+        return;
+    }
+    int used = std::accumulate(cache_vec.begin(), cache_vec.end(), 0,
+            [&data](int total, int video) {
+                return total + data.video_sizes[video];
+            });
+    int remaining = data.cache_size - used;
+    // TODO: Can we always fully pack a cache?
+    if (data.video_sizes[video] <= remaining) {
+        cache_vec.push_back(video);
+    }
+}
+
 Result getResult(const Data& data) {
     const auto& edges = generateEdges(data);
     std::cerr << "After generate" << std::endl;
     const auto& sortedEdges = sortEdges(edges, data);
 
-    return {};
+    Result result;
+    result.videos_in_cache.resize(data.cache_server_count);
+    for (const auto& edge : sortedEdges) {
+        const auto& video = edge.first.video_index;
+        const auto& cache = edge.first.cache_index;
+        insert_video_if_can_and_isnt_in_already(data, result, video, cache);
+    }
+
+    return result;
+    ;
 }
 
 int main() {
