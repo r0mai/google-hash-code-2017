@@ -31942,7 +31942,7 @@ def main():
         "set label at " + str(hypnotoad_position) + ", " + str(hypnotoad_score)
         + " 'The Hypnotoad' point pointtype 7 pointsize 2\n")
 
-    gnuplot_input += "plot '-' using 1:2 title 'Results'\n"
+    gnuplot_input += "plot '-' using 1:2 title 'Results' with lines\n"
 
     for position, score in enumerate(teams):
         gnuplot_input += str(position) + " " + str(score) + "\n"
