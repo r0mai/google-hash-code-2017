@@ -1,6 +1,6 @@
 # google-hash-code-2017
 
-The hynotoad team's solutions for the 
+The hypnotoad team's solutions for the
 [2017 Google Hash Code](https://hashcode.withgoogle.com/)
 
 Team members:
